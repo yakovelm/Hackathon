@@ -19,7 +19,7 @@ class Server:
         self.player1_Name = None
         self.player2_Name = None
         self.math=None
-        Self.solution=None
+        self.solution=None
 
     def init_server(self):
         print("Server::init")
@@ -65,6 +65,8 @@ class Server:
                     self.start_game()
 
                 #need to wait for 2nd player
+
+
     def create_math(self):
         sign=random.choice(["+","-"])
         digits=[1,2,3,4,5,6,7,8,9]
@@ -73,9 +75,11 @@ class Server:
         if sign=="+":
             while num1+num2>=10:
                 num2=random.choice(digits)
+            self.solution=num1+num2
         else:
             while num1+num2<0:
                 num2=random.choice(digits)
+            self.solution = num1 - num2
         return "How much is "+str(num1)+sign+str(num2)+"?"
 
 
@@ -83,9 +87,12 @@ class Server:
 
     def start_game(self):
         message="Welcome to Quick Maths: \nPlayer 1: "+ self.player1_Name +"\nPlayer 2 : " +self.player2_Name+"\n==\n Please answer the following question as fast as you can:\n"
-        self.create_math()
-        t1=threading.Thread(target=self.solve, args=(self.player2_socket,message))
-        t2=threading.Thread(target=self.solve, args=(self.player2_socket,message))
+        formula=self.create_math()
+        t1=threading.Thread(target=self.solve, args=(self.player2_socket,message,formula))
+        t2=threading.Thread(target=self.solve, args=(self.player2_socket,message,formula))
+
+    def solve(self,player,message,formula):
+        player.sendto()
 
 
 
