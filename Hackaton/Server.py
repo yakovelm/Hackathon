@@ -1,7 +1,7 @@
 import ipaddress
 import random
-import select
-import selectors
+from select import select
+
 import socket
 import struct
 from threading import Thread
@@ -16,9 +16,8 @@ class Server:
         self.sock_udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock_udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock_tcp.setblocking(True)
-        self.sock_tcp.bind(('127.0.0.1', 13118))
-        self.port = 13118
+        self.sock_tcp.bind(('', 2119))
+        self.port = 2119
         self.player1_socket = None
         self.player2_socket = None
         self.players = 0
@@ -41,56 +40,45 @@ class Server:
 
     def start_game(self):
         try:
-            name1 = self.player1_socket.recv(1024)
-            name2 = self.player2_socket.recv(1024)
+            name1 = self.player1_socket.recv(1024).decode()
+            name2 = self.player2_socket.recv(1024).decode()
             message = "Welcome to Quick Maths: \nPlayer 1: " + name1 + "\nPlayer 2 : " + name2 + "\n==\n Please answer the following question as fast as you can:\n"
-            formula = self.create_math()
-            formula_in_bytes = formula.encode()
-            dec = message.encode()
-            self.player1_socket.sendto(dec)
-            self.player2_socket.sendto(dec)
+            message =message+ self.create_math()
+            formula_in_bytes = message.encode()
 
             time.sleep(10)
-            self.player1_socket.sendto(formula_in_bytes)
-            self.player2_socket.sendto(formula_in_bytes)
+            self.player1_socket.send(formula_in_bytes)
+            self.player2_socket.send(formula_in_bytes)
 
-            yaki, _, _ = select.select([self.player1_socket, self.player2_socket], [], [], 10)
+            yaki, _, _ = select([self.player1_socket, self.player2_socket], [], [], 10)
             if len(yaki) == 0:
                 write = "is draw! the right answer is" + str(self.solution)
-                self.player1_socket.sendto(write)
-                self.player2_socket.sendto(write)
+                self.player1_socket.send(write.encode())
+                self.player2_socket.send(write.encode())
             else:
                 if yaki[0] == self.player1_socket:
                     ans = self.player1_socket.recv(1024).decode()
                     if str(self.solution) == ans:
-                        write = ("the winner is " + name1 + ", the loser is " + name2).encode()
-                        self.player1_socket.sendto(write)
-                        self.player2_socket.sendto(write)
+                        write = ("the winner is " + name1 + ", the loser is " + name2+"\n the right answer is "+str(self.solution)).encode()
+                        self.player1_socket.send(write)
+                        self.player2_socket.send(write)
                     else:
-                        write = ("the winner is " + name2 + ", the loser is " + name1).encode()
-                        self.player1_socket.sendto(write)
-                        self.player2_socket.sendto(write)
+                        write = ("the winner is " + name2 + ", the loser is " + name1+"\n the right answer is "+str(self.solution)).encode()
+                        self.player1_socket.send(write)
+                        self.player2_socket.send(write)
                 else:
                     ans = self.player2_socket.recv(1024).decode()
                     if str(self.solution) == ans:
-                        write = "the winner is " + name2 + ", the loser is " + name1
-                        self.player1_socket.sendto(write)
-                        self.player2_socket.sendto(write)
+                        write = "the winner is " + name2 + ", the loser is " + name1+"\n the right answer is "+str(self.solution)
+                        self.player1_socket.send(write.encode())
+                        self.player2_socket.send(write.encode())
                     else:
-                        write = "the winner is " + name1 + ", the loser is " + name2
-                        self.player1_socket.sendto(write)
-                        self.player2_socket.sendto(write)
+                        write = "the winner is " + name1 + ", the loser is " + name2+"\n the right answer is "+str(self.solution)
+                        self.player1_socket.send(write.encode())
+                        self.player2_socket.send(write.encode())
+            self.players=0
         except Exception as e:
             print(e)
-
-        self.player1_socket
-        reads, _, _ = select.select([self.player1_socket, self.player2_socket], [], [], 10)
-
-        self.player1_socket.sendto(formula_in_bytes)
-        self.player2_socket.sendto(formula_in_bytes)
-
-    def solve(self, player, formula):
-        player.sendto(formula)
 
     def init_Broad_Cast(self):
         try:
@@ -107,11 +95,12 @@ class Server:
         while self.players < 2:
             self.sock_tcp.listen(2)
             new_conn, address = self.sock_tcp.accept()
-            with new_conn:
-                if self.players == 0:
-                    self.player1_socket = new_conn
-                else:
-                    self.player2_socket = new_conn
+            if self.players == 0:
+                self.player1_socket = new_conn
+                self.players=1
+            else:
+                self.player2_socket = new_conn
+                self.players=2
 
     def run(self):
         while True:

@@ -1,22 +1,23 @@
+from select import select
 import socket
 import struct
 import selectors
 import sys
 
-teamName=b"SorryException\n"
+teamName="SorryException"
 
 class Client:
     def __init__(self):
         self.sock = None
-        self.sel=selectors.DefaultSelector()
 
     def start(self):
         print("Client Started, listening for offer requests...")
-        self.looking_for_server()
+        while True:
+            self.looking_for_server()
 
 
     def looking_for_server(self):
-        print("Client::looking_for_server")
+
         sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
@@ -26,16 +27,14 @@ class Client:
 
 
     def check_package(self,message,address):
-        print("Client::check_package")
 
+        self.sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         pre,type,port=struct.unpack("!IBH",message)
 
         if pre==0xabcddcba and type==0x02:
-            self.sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            print((address[0],port))
+
             self.sock.connect((address[0],port))
-            print("nitay")
-            self.sock.send(teamName)
+            self.sock.send(teamName.encode())
             self.game_mode()
             
             
@@ -47,13 +46,18 @@ class Client:
 
 
     def game_mode(self):
-        print("Client::game_mode")
-        inChar=""
-        self.sel.register(fileobj=sys.stdin, events=selectors.EVENT_READ)
-        self.sock_tcp.setblocking(False)
-        self.sel.register(self.sock,events=selectors.EVENT_READ)
-        question=self.sock.recv(1024)
-        print(question)
+        try:
+            print(self.sock.recv(1024).decode())
+            check,_,_=select([sys.stdin,self.sock],[],[],10)
+            if len(check)==1 and check[0]==sys.stdin:
+                answer=sys.stdin.read(1)
+                self.sock.send(answer.encode())
+            
+            p=self.sock.recv(1024).decode()
+            print(p)
+        except Exception as e:
+            print(e)
+
         
 
 
