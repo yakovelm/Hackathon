@@ -1,8 +1,14 @@
 import socket
 import struct
+import selectors
+import sys
 
+teamName=b"SorryException\n"
 
 class Client:
+    def __init__(self):
+        self.sock = None
+        self.sel=selectors.DefaultSelector()
 
     def start(self):
         print("Client Started, listening for offer requests...")
@@ -13,6 +19,7 @@ class Client:
         print("Client::looking_for_server")
         sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        sock.setsockopt(socket.SOL_SOCKET,socket.SO_BROADCAST,1)
         sock.bind(('',13117))
         massage, address=sock.recvfrom(1024) # need to be 7
         self.check_package(massage,address)
@@ -20,31 +27,35 @@ class Client:
 
     def check_package(self,message,address):
         print("Client::check_package")
-        pre=struct.unpack("L",message[0:4])[0]
-        type=struct.unpack("B",message[4:5])[0]
+
+        pre,type,port=struct.unpack("!IBH",message)
 
         if pre==0xabcddcba and type==0x02:
-            port=struct.unpack("H",message[5:7])[0]
-            print(port)
-            sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            sock.connect((address[0],port))
-            sock.sendall(b"this is sendall")
-            print("here i send")
+            self.sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            print((address[0],port))
+            self.sock.connect((address[0],port))
+            print("nitay")
+            self.sock.send(teamName)
+            self.game_mode()
+            
+            
 
 
         else:
-            print("aleks")
+            print("Error")
 
-
-
-
-
-
-
-    def connection_with_server(self):
-        pass
 
 
     def game_mode(self):
-        pass
+        print("Client::game_mode")
+        inChar=""
+        self.sel.register(fileobj=sys.stdin, events=selectors.EVENT_READ)
+        self.sock_tcp.setblocking(False)
+        self.sel.register(self.sock,events=selectors.EVENT_READ)
+        question=self.sock.recv(1024)
+        print(question)
+        
 
+
+if __name__ == '__main__':
+    Client().start()
