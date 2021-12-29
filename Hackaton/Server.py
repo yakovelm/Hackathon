@@ -68,9 +68,16 @@ class Server:
     def create_math(self):
         sign=random.choice(["+","-"])
         digits=[1,2,3,4,5,6,7,8,9]
+        num1 = random.choice(digits)
+        num2 = random.choice(digits)
         if sign=="+":
-            num1=random.choice([1,2,3,4,5,6,7,8,9,0])
-            num2=random.choice()
+            while num1+num2>=10:
+                num2=random.choice(digits)
+        else:
+            while num1+num2<0:
+                num2=random.choice(digits)
+        return "How much is "+str(num1)+sign+str(num2)+"?"
+
 
 
 
