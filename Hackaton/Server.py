@@ -1,5 +1,7 @@
 import ipaddress
 import random
+import select
+import selectors
 import socket
 import struct
 import threading
@@ -10,61 +12,17 @@ class Server:
     
     def __init__(self):
         self.name="the Server connect with you\n what is your name?"
+        self.sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock_udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock_udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock_tcp.setblocking(True)
-        self.sock_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
+        self.sock_tcp.bind(('192.168.56.1', 13118))
+        self.port=13118
         self.player1_socket=None
         self.player2_socket=None
-        self.player1_Name = None
-        self.player2_Name = None
-        self.math=None
+        self.players=0
         self.solution=None
-
-    def init_server(self):
-        print("Server::init")
-        try:
-            print("Server started, listening on IP address:")  # ip
-            self.sock_udp.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-            self.sock_udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            self.sock_tcp.bind(('192.168.56.1', 13118))
-            t = threading.Thread(target=self.my_accept, args=())
-            t.start()
-            self.udp_work()
-        except Exception as e:
-            print(e)
-
-    def udp_work(self):
-        print("Server::udp_work")
-        try:
-            port = self.sock_tcp.getsockname()[1]
-            broad_cast = ("255.255.255.255", 13117)
-            pre = struct.pack("L", 0xabcddcba)
-            offer = struct.pack("B", 0x2)
-            port = struct.pack("H", port)
-            massage = b''.join([pre, offer, port])
-
-            while True:
-                self.sock_udp.sendto(massage, broad_cast)
-                time.sleep(1)
-        except Exception as e:
-            print(e)
-
-
-    def my_accept(self):
-        print("Server::my accept")
-        while True:
-            self.sock_tcp.listen()
-            new_conn,address=self.sock_tcp.accept()
-            with new_conn:
-                if not self.player1_socket is None:
-                    threading.Thread(target=self.player_controller, args=(new_conn,True)).start()
-                else:
-                    threading.Thread(target=self.player_controller, args=(new_conn, False)).start()
-                    time.sleep(10)
-                    self.start_game()
-
-                #need to wait for 2nd player
 
 
     def create_math(self):
@@ -86,29 +44,69 @@ class Server:
 
 
     def start_game(self):
-        message="Welcome to Quick Maths: \nPlayer 1: "+ self.player1_Name +"\nPlayer 2 : " +self.player2_Name+"\n==\n Please answer the following question as fast as you can:\n"
+        name1=self.player1_socket.recv(1024)
+        name2=self.player2_socket.recv(1024)
+        message="Welcome to Quick Maths: \nPlayer 1: "+ name1 +"\nPlayer 2 : " +name2+"\n==\n Please answer the following question as fast as you can:\n"
         formula=self.create_math()
+        formula_in_bytes=formula.encode()
+        dec=message.encode()
+        self.player1_socket.sendto(dec)
+        self.player2_socket.sendto(dec)
+        sel=selectors.DefaultSelector()
+        #t1=threading.Thread(()-> self.player1_socket.sendto(formula_in_bytes))
+        #t2 = threading.Thread(()-> self.player2_socket.sendto(formula_in_bytes))
+        self.player1_socket
+        reads,_,_=select.select([self.player1_socket,self.player2_socket],[],[],10)
+        time.sleep(10)
+        t1.start()
+        t2.start()
+        if len(reads)==0:
+            #draw
+        elif reads[1].
+        self.player1_socket.sendto(formula_in_bytes)
+        self.player2_socket.sendto(formula_in_bytes)
+
+
         t1=threading.Thread(target=self.solve, args=(self.player2_socket,message,formula))
         t2=threading.Thread(target=self.solve, args=(self.player2_socket,message,formula))
 
-    def solve(self,player,message,formula):
-        player.sendto()
+    def solve(self,player,formula):
+        player.sendto(formula)
 
 
 
-    def player_controller(self,conn,first):
-        if first:
-            self.player1_socket=conn
-            self.player1_Name=conn.recv(1024)
-        else:
-            self.player2_socket=conn
-            self.player2_Name = conn.recv(1024)
+    def init_Broad_Cast(self):
+        try:
+            broad_cast = ("255.255.255.255", 13117)
+            pre = struct.pack("L", 0xabcddcba)
+            offer = struct.pack("B", 0x2)
+            port = struct.pack("H", self.port)
+            massage = b''.join([pre, offer, port])
 
+            while self.players<2:
+                self.sock_udp.sendto(massage, broad_cast)
+                time.sleep(1)
+        except Exception as e:
+            print(e)
 
+    def init_accept_thread(self):
+        while self.players<2:
+            self.sock_tcp.listen(2)
+            new_conn,address=self.sock_tcp.accept()
+            with new_conn:
+                if self.players==0:
+                    self.player1_socket=new_conn
+                else:
+                    self.player2_socket=new_conn
+                    self.start_game()
 
+    def run(self):
+        self.init_server()
+        threading.Thread(self.init_Broad_Cast()).start()
+        threading.Thread(self.init_accept_thread()).start()
 
 
 
 if __name__ == '__main__':
-    Server().start_game()
+    Server().run()
 
